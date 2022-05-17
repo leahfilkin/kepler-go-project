@@ -112,9 +112,6 @@ func TestMetadata(t *testing.T) {
 		},
 	}
 	for testName, tt := range tests {
-		// test for correct content type
-		// counter
-		// mutex
 		t.Run(testName, func(t *testing.T) {
 			request, _ := http.NewRequest(http.MethodGet, tt.url, nil)
 			writer := httptest.NewRecorder()
@@ -133,5 +130,47 @@ func TestMetadata(t *testing.T) {
 				t.Errorf("got %d, want %d", resp.StatusCode, tt.statusCode)
 			}
 		})
+	}
+}
+
+func TestCounter(t *testing.T) {
+	tests := map[string]struct {
+		url        string
+		statusCode int
+		body       string
+	}{
+		"correct": {
+			url:        "/count",
+			statusCode: http.StatusNoContent,
+			body:       "Visited count: 1000",
+		},
+	}
+
+	for testName, tt := range tests {
+		t.Parallel()
+		var actualBody string
+		var actualStatusCode int
+		counter := new(countHandler)
+		for i := 0; i < 1000; i++ {
+			t.Run(testName, func(t *testing.T) {
+				request, err := http.NewRequest(http.MethodGet, tt.url, nil)
+				if err != nil {
+					t.Errorf("Error: %s", err)
+				}
+				writer := httptest.NewRecorder()
+				counter.ServeHTTP(writer, request)
+				resp := writer.Result()
+				body, _ := ioutil.ReadAll(resp.Body)
+				actualBody = string(body)
+				actualStatusCode = resp.StatusCode
+				fmt.Printf("Test Visitor Count: %d. Test number: %d\n", counter.count, i)
+			})
+		}
+		if actualBody != tt.body {
+			t.Errorf("got: %q want: %q", actualBody, tt.body)
+		}
+		if actualStatusCode != tt.statusCode {
+			t.Errorf("got %d, want %d", actualStatusCode, tt.statusCode)
+		}
 	}
 }

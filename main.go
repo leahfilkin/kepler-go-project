@@ -5,12 +5,18 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sync"
 )
 
 type Metadata struct {
 	Version       string `json:"version"`
 	Description   string `json:"description"`
 	LastCommitSha string `json:"last_commit_sha"`
+}
+
+type countHandler struct {
+	mu    sync.Mutex
+	count int
 }
 
 func hello(w http.ResponseWriter, req *http.Request) {
@@ -61,12 +67,22 @@ func metadata(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Error: %s", err)
 	}
 }
+
+func (handler *countHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+	handler.mu.Lock()
+	handler.count++
+	handler.mu.Unlock()
+	fmt.Fprintf(w, "Visited count: %d", handler.count)
+}
+
 func main() {
 
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/health", health)
 	http.HandleFunc("/headers", headers)
 	http.HandleFunc("/metadata", metadata)
+	http.Handle("/count", new(countHandler))
 
 	http.ListenAndServe(":8090", nil)
 }
